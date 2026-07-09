@@ -1,0 +1,12 @@
+.git
+.venv
+venv
+env
+__pycache__
+*.py[cod]
+.DS_Store
+data/
+trained_models/
+archive/
+docs/
+.claude/

@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: brain-hand
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /
+    disk:
+      name: brain-hand-state
+      mountPath: /app/state
+      sizeGB: 5
+    envVars:
+      - key: MODEL_DIR
+        value: /app/state/trained_models
+      - key: MNE_DATA
+        value: /app/state/mne_data
+      - key: PORT
+        value: 10000

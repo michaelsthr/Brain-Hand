@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from pathlib import Path
 
@@ -14,8 +15,8 @@ from pipeline.models.mirepnet import MIRepNetModel
 app = Flask(__name__)
 CORS(app)
 
-MODEL_DIR = Path("trained_models")
-MODEL_DIR.mkdir(exist_ok=True)
+MODEL_DIR = Path(os.environ.get("MODEL_DIR", "trained_models"))
+MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
 WEB_MODEL_DIR = Path("static/model")
 if not (WEB_MODEL_DIR / "scene.xml").exists():
