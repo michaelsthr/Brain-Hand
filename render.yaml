@@ -2,7 +2,7 @@ services:
   - type: web
     name: brain-hand
     runtime: docker
-    plan: starter
+    plan: standard
     dockerfilePath: ./Dockerfile
     healthCheckPath: /
     disk:
