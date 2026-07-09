@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BCI Hand Control</title>
+  <script>
+    document.documentElement.dataset.theme =
+      localStorage.getItem('theme') ||
+      (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/static/vendor/three/three.module.js",
+        "three/addons/": "/static/vendor/three/addons/"
+      }
+    }
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #0d0f14;
+      --surface: #161a24;
+      --border:  #252b3b;
+      --accent:  #4f8ef7;
+      --green:   #3de08a;
+      --red:     #f75555;
+      --text:    #e2e8f0;
+      --muted:   #64748b;
+      --accent-soft: rgba(79,142,247,0.12);
+      --accent-ring: rgba(79,142,247,0.2);
+      --green-ring:  rgba(61,224,138,0.2);
+      --radius:  10px;
+      --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    }
+
+    :root[data-theme="light"] {
+      --bg:      #f4f5f8;
+      --surface: #ffffff;
+      --border:  #e3e6ee;
+      --accent:  #2f6fe0;
+      --green:   #0f9d58;
+      --red:     #dc3d3d;
+      --text:    #1a2233;
+      --muted:   #6b7688;
+      --accent-soft: rgba(47,111,224,0.08);
+      --accent-ring: rgba(47,111,224,0.18);
+      --green-ring:  rgba(15,157,88,0.18);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      transition: background-color 200ms ease, color 200ms ease;
+    }
+
+    header {
+      padding: 18px 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: border-color 200ms ease;
+    }
+    header h1 { font-size: 1.2rem; font-weight: 600; letter-spacing: 0.03em; }
+
+    .theme-toggle {
+      margin-left: auto;
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: transform 160ms var(--ease-out), border-color 0.15s, color 0.15s,
+                  background-color 200ms ease;
+    }
+    .theme-toggle:hover { border-color: var(--accent); color: var(--text); }
+    .theme-toggle:active { transform: scale(0.94); }
+    .theme-toggle svg { width: 16px; height: 16px; }
+    .theme-toggle .icon-sun  { display: none; }
+    :root[data-theme="light"] .theme-toggle .icon-sun  { display: block; }
+    :root[data-theme="light"] .theme-toggle .icon-moon { display: none; }
+    header .tag {
+      font-size: 0.7rem;
+      background: var(--accent);
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      grid-template-rows: 1fr;
+      gap: 0;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      overflow-y: auto;
+      transition: background-color 200ms ease, border-color 200ms ease;
+    }
+
+    .pred-card, .stat-card, .model-btn, .sim-card, .chart-card, .status-bar {
+      transition: background-color 200ms ease, border-color 200ms ease;
+    }
+    .model-btn { transition: background-color 200ms ease, border-color 0.15s, color 0.15s; }
+
+    .section-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    .model-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .model-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: var(--radius);
+      padding: 10px 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      text-align: center;
+    }
+    .model-btn:hover { border-color: var(--accent); }
+    .model-btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+
+    .pred-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 16px;
+    }
+    .decision-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      line-height: 1;
+    }
+    .true-label {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+    .true-label.left  { color: var(--accent); }
+    .true-label.right { color: var(--green); }
+    .true-label.none  { color: var(--muted); }
+    .dec-arrow {
+      font-size: 1.3rem;
+      color: var(--muted);
+    }
+    .pred-label {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+    .pred-label.correct-left  { color: var(--accent); }
+    .pred-label.correct-right { color: var(--green); }
+    .pred-label.wrong         { color: var(--red); }
+    .pred-label.none          { color: var(--muted); }
+    .conf-bar-wrap { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 10px; }
+    .conf-bar { height: 100%; border-radius: 3px; background: var(--accent); transition: width 0.4s ease; width: 0%; }
+    .conf-text { font-size: 0.78rem; color: var(--muted); margin-top: 5px; }
+
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .stat-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+    }
+    .stat-val { font-size: 1.5rem; font-weight: 700; }
+    .stat-key { font-size: 0.7rem; color: var(--muted); margin-top: 2px; }
+    .stat-val.good { color: var(--green); }
+    .stat-val.bad  { color: var(--red); }
+
+    .ctrl-row { display: flex; gap: 8px; }
+    .btn {
+      flex: 1;
+      padding: 10px;
+      border-radius: var(--radius);
+      border: none;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-danger  { background: var(--red);    color: #fff; }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .hand-sliders { display: flex; flex-direction: column; gap: 14px; }
+    .slider-row { display: flex; flex-direction: column; gap: 4px; }
+    .slider-label {
+      display: flex; justify-content: space-between;
+      font-size: 0.75rem; color: var(--muted);
+    }
+    .slider-label span:last-child { color: var(--text); font-weight: 600; }
+    input[type=range] {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 4px;
+      background: var(--border); border-radius: 2px; outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: var(--accent); cursor: pointer;
+      box-shadow: 0 0 0 3px var(--accent-ring);
+    }
+    input[type=range].right-slider::-webkit-slider-thumb { background: var(--green); box-shadow: 0 0 0 3px var(--green-ring); }
+    input[type=range]:disabled { opacity: 0.3; }
+
+    .content {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+    }
+
+    .sim-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0;
+      overflow: hidden;
+      position: relative;
+    }
+    #simView {
+      width: 100%;
+      height: 460px;
+      display: block;
+    }
+    .sim-badge {
+      position: absolute;
+      top: 12px; left: 14px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+
+    .chart-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+    }
+    .chart-card h3 { font-size: 0.85rem; font-weight: 600; margin-bottom: 14px; color: var(--muted); }
+    .chart-wrap { position: relative; height: 140px; }
+
+    .status-bar {
+      font-size: 0.78rem;
+      color: var(--muted);
+      padding: 8px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+    .dot.live { background: var(--green); animation: pulse 1.4s ease infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>BCI Hand Control</h1>
+  <span class="tag">DEMO</span>
+  <button class="theme-toggle" id="themeToggle" aria-label="Toggle color theme">
+    <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+    </svg>
+    <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+  </button>
+</header>
+
+<main>
+  <aside class="sidebar">
+
+    <div>
+      <div class="section-label">Model</div>
+      <div class="model-grid" id="modelGrid"></div>
+    </div>
+
+    <div>
+      <div class="section-label">Prediction</div>
+      <div class="pred-card">
+        <div class="decision-row">
+          <span class="true-label none" id="trueLabel">—</span>
+          <span class="dec-arrow">→</span>
+          <span class="pred-label none" id="predLabel">—</span>
+        </div>
+        <div class="conf-bar-wrap"><div class="conf-bar" id="confBar"></div></div>
+        <div class="conf-text" id="confText">Confidence: —</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Session Stats</div>
+      <div class="stats">
+        <div class="stat-card">
+          <div class="stat-val" id="accVal">—</div>
+          <div class="stat-key">Accuracy</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="trialVal">—</div>
+          <div class="stat-key">Trial</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="correctVal">—</div>
+          <div class="stat-key">Correct</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-val" id="wrongVal">—</div>
+          <div class="stat-key">Wrong</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">Hand Control</div>
+      <div class="hand-sliders">
+        <div class="slider-row">
+          <div class="slider-label"><span>Left &nbsp;(open → fist)</span><span id="leftVal">50%</span></div>
+          <input type="range" id="leftSlider" min="0" max="100" value="50" oninput="onHandSlider()">
+        </div>
+        <div class="slider-row">
+          <div class="slider-label"><span>Right (open → fist)</span><span id="rightVal">50%</span></div>
+          <input type="range" id="rightSlider" min="0" max="100" value="50" class="right-slider" oninput="onHandSlider()">
+        </div>
+        <button class="btn btn-primary" id="animBtn" onclick="toggleAnimate()">▶ Animate</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="section-label">EEG Stream</div>
+      <div class="ctrl-row">
+        <button class="btn btn-primary" id="startBtn" onclick="startStream()">▶ Start</button>
+        <button class="btn btn-danger"  id="stopBtn"  onclick="stopStream()" disabled>■ Stop</button>
+      </div>
+    </div>
+
+  </aside>
+
+  <div class="content">
+    <div class="sim-card">
+      <span class="sim-badge">MuJoCo · WebAssembly · Shadow Hand ×2</span>
+      <div id="simView"></div>
+    </div>
+    <div class="chart-card">
+      <h3>EEG — C3 (left motor cortex)</h3>
+      <div class="chart-wrap"><canvas id="chartC3"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <h3>EEG — C4 (right motor cortex)</h3>
+      <div class="chart-wrap"><canvas id="chartC4"></canvas></div>
+    </div>
+    <div class="status-bar">
+      <div class="dot" id="statusDot"></div>
+      <span id="statusText">Ready — select a model and press Start.</span>
+    </div>
+  </div>
+</main>
+
+<script type="module" src="/static/sim.js"></script>
+<script src="/static/main.js"></script>
+<script>
+  document.getElementById('themeToggle').addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem('theme', next);
+    if (window.applyChartTheme) window.applyChartTheme(next);
+    if (window.sim) window.sim.setTheme(next);
+  });
+</script>
+</body>
+</html>

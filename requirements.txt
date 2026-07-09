@@ -1,0 +1,13 @@
+flask
+flask-cors
+moabb>=1.0
+mne>=1.6
+braindecode>=0.8
+torch>=2.2
+torchvision
+scikit-learn
+numpy
+scipy
+joblib
+mujoco
+robot_descriptions

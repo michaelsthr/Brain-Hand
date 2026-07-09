@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# OS
+.DS_Store
+
+# EEG dataset — downloaded by MOABB on first run (~1.2 GB)
+data/
+
+# Trained model weights — regenerated on first run
+trained_models/
+
+# Local research / analysis material, not part of the app
+archive/
