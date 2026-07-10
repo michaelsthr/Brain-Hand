@@ -12,7 +12,7 @@
 [![Flask](https://img.shields.io/badge/Flask-SSE-000000?logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
-<img src="docs/hero.gif" alt="BrainHand — dual Shadow Hand rendered in the browser via MuJoCo-WASM, driven by EEG motor-imagery decoding" width="880">
+<img src="docs/hero.png" alt="BrainHand — dual Shadow Hand rendered in the browser via MuJoCo-WASM, driven by EEG motor-imagery decoding" width="880">
 
 </div>
 
